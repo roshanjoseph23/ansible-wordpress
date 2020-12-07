@@ -1,0 +1,94 @@
+---
+
+- name: "Ubuntu apache"
+  apt:
+    name: 
+      - apache2
+      - mysql-server
+      - python3-mysqldb
+      - php
+      - php-mysql
+    state: present
+
+- name: "Creating document root"
+  file:
+    path: "/var/www/html/{{httpd_domain}}"
+    state: directory
+    owner: "{{apache_owner}}"
+    group: "{{apache_group}}"
+
+- name: "Wordpress - Downloading Archive file"
+  get_url:
+    url: "{{ wordpress }}"
+    dest: /tmp/wordpress.tar.gz
+
+- name: "Extracting tar file"
+  unarchive:
+    remote_src: true
+    src: /tmp/wordpress.tar.gz
+    dest: /tmp/
+
+- name: "Virtualhost entry"
+  template:
+    src: virtual_host.tmp
+    dest: /etc/apache2/sites-enabled/{{httpd_domain}}.conf
+  register: vhost_status
+
+
+- name: "Copying website files"
+  copy:
+    src: /tmp/wordpress/
+    dest: "/var/www/html/{{httpd_domain}}/"
+    remote_src: true
+    owner: "{{apache_owner}}"
+    group: "{{apache_group}}"
+  register: content_status
+
+- name: "Resetting Root password"
+  ignore_errors: true
+  mysql_user:
+    login_user: 'root'
+    login_password: ""
+    name: 'root'
+    password: "{{mysql_password}}"
+    host_all: true
+
+- name: "Removing anonymous users"
+  mysql_user:
+    login_user: 'root'
+    login_password: "{{mysql_password}}"
+    name: ""
+    state: absent
+    host_all: true
+
+- name: "Created database Wordpress"
+  mysql_db:
+    name: "{{ db_name }}"
+    state: present
+    login_user: "{{mysql_user}}"
+    login_password: "{{ mysql_password }}"
+
+- name: "Creating mysql user"
+  mysql_user:
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+    host: localhost
+    state: present
+    priv: "{{ db_name }}.*:ALL"
+    login_user: "{{mysql_user}}"
+    login_password: "{{ mysql_password }}"
+
+- name: "Copying wordpress config"
+  template:
+    src: wp-config.tmp
+    dest: /var/www/html/{{httpd_domain}}/wp-config.php
+
+- name: "Restarting services"
+  when: vhost_status.changed == true or content_status.changed == true
+  service:
+    name: "{{item}}"
+    state: restarted
+    enabled: true
+  with_items:
+    - apache2
+    - mysql

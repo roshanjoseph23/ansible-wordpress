@@ -1,0 +1,28 @@
+---
+- name: "Test for Wordpress installation"
+  hosts: all
+  become: true
+  vars_files:
+    - variable.vars
+  vars_prompt:
+    - name: wordpress
+      prompt: "Enter wordpress download url: "
+      private: no
+    - name: mysql_password
+      prompt: "Enter mysql root password: "
+      private: yes
+    - name: db_name
+      prompt: "Enter wordpress database name: "
+      private: no
+    - name: db_user
+      prompt: "Enter wordpress database user: "
+      private: no
+    - name: db_password
+      prompt: "Enter wordpress database user password: "
+      private: yes
+  tasks:
+    - include_tasks: apache_ubuntu.yml
+      when: ansible_os_family == "Debian"
+
+    - include_tasks: apache_redhat.yml
+      when: ansible_os_family == "RedHat"
