@@ -1,0 +1,6 @@
+---
+- include_tasks: apache_ubuntu.yml
+  when: ansible_os_family == "Debian"
+
+- include_tasks: apache_redhat.yml
+  when: ansible_os_family == "RedHat"

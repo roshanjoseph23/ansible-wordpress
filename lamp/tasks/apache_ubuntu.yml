@@ -1,5 +1,5 @@
 ---
-
+#Configuring LAMP
 - name: "Ubuntu apache"
   apt:
     name: 
@@ -10,6 +10,15 @@
       - php-mysql
     state: present
 
+#Configuring Apache
+- name: "Virtualhost entry"
+  template:
+    src: virtual_host.tmp
+    dest: /etc/apache2/sites-enabled/{{httpd_domain}}.conf
+  notify:
+    - ubuntu-apache
+
+#Configuring Wordpress
 - name: "Creating document root"
   file:
     path: "/var/www/html/{{httpd_domain}}"
@@ -28,13 +37,6 @@
     src: /tmp/wordpress.tar.gz
     dest: /tmp/
 
-- name: "Virtualhost entry"
-  template:
-    src: virtual_host.tmp
-    dest: /etc/apache2/sites-enabled/{{httpd_domain}}.conf
-  register: vhost_status
-
-
 - name: "Copying website files"
   copy:
     src: /tmp/wordpress/
@@ -42,8 +44,15 @@
     remote_src: true
     owner: "{{apache_owner}}"
     group: "{{apache_group}}"
-  register: content_status
 
+- name: "Copying wordpress config"
+  template:
+    src: wp-config.tmp
+    dest: /var/www/html/{{httpd_domain}}/wp-config.php
+  notify:
+    - ubuntu-apache
+
+#Configuring MySQL
 - name: "Resetting Root password"
   ignore_errors: true
   mysql_user:
@@ -77,18 +86,3 @@
     priv: "{{ db_name }}.*:ALL"
     login_user: "{{mysql_user}}"
     login_password: "{{ mysql_password }}"
-
-- name: "Copying wordpress config"
-  template:
-    src: wp-config.tmp
-    dest: /var/www/html/{{httpd_domain}}/wp-config.php
-
-- name: "Restarting services"
-  when: vhost_status.changed == true or content_status.changed == true
-  service:
-    name: "{{item}}"
-    state: restarted
-    enabled: true
-  with_items:
-    - apache2
-    - mysql

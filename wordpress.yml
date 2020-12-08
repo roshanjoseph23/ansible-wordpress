@@ -2,8 +2,8 @@
 - name: "Test for Wordpress installation"
   hosts: all
   become: true
-  vars_files:
-    - variable.vars
+  roles:
+    - lamp
   vars_prompt:
     - name: wordpress
       prompt: "Enter wordpress download url: "
@@ -20,9 +20,3 @@
     - name: db_password
       prompt: "Enter wordpress database user password: "
       private: yes
-  tasks:
-    - include_tasks: apache_ubuntu.yml
-      when: ansible_os_family == "Debian"
-
-    - include_tasks: apache_redhat.yml
-      when: ansible_os_family == "RedHat"

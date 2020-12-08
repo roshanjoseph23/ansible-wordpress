@@ -1,4 +1,5 @@
 ---
+#Configuring LAMP
 - name: "Redhat Install"
   yum:
     name: 
@@ -9,7 +10,7 @@
       - php-mysql
     state: present
 
-- name: "Restarting mariadb service"
+- name: "Starting mariadb"
   service:
     name: mariadb
     state: restarted
@@ -20,8 +21,6 @@
     dest: /etc/httpd/conf/httpd.conf
     owner: "{{ httpd_owner }}"
     group: "{{ httpd_group }}"
-  register: httpd_status
-
 
 - name: "Virtualhost entry"
   template:
@@ -29,8 +28,10 @@
     dest: /etc/httpd/conf.d/{{httpd_domain}}.conf
     owner: "{{ httpd_owner }}"
     group: "{{ httpd_group }}"
-  register: vhost_status
-  
+  notify:
+    - redhat-apache
+
+#Configuring Wordpress  
 - name: "Creating document root"
   file:
     path: /var/www/html/{{httpd_domain}}
@@ -56,8 +57,15 @@
     remote_src: true
     owner: "{{ httpd_owner }}"
     group: "{{ httpd_group }}"
-  register: content_status
 
+- name: "Copying wordpress config"
+  template:
+    src: wp-config.tmp
+    dest: /var/www/html/{{httpd_domain}}/wp-config.php
+  notify:
+    - redhat-apache
+
+#Configuring MySQL
 - name: "Resetting Root password"
   ignore_errors: true
   mysql_user:
@@ -93,20 +101,3 @@
     priv: "{{ db_name }}.*:ALL"
     login_user: "{{mysql_user}}"
     login_password: "{{ mysql_password }}"
-  register: mysql_status
-
-- name: "Copying wordpress config"
-  template:
-    src: wp-config.tmp
-    dest: /var/www/html/{{httpd_domain}}/wp-config.php
-  register: config_status
-
-- name: "Restarting services"
-  when: httpd_status.changed == true or vhost_status.changed == true or content_status.changed == true or config_status.changed == true or mysql_status.changed == true
-  service:
-    name: "{{ item }}"
-    state: restarted
-    enabled: true
-  with_items:
-    - httpd
-    - mariadb
